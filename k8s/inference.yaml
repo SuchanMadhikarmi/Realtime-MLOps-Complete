@@ -5,6 +5,6 @@ metadata:
   namespace: churn-model
 spec:
   predictor:
-    serviceAccountName: sa-s3-access
+    serviceAccountName: sa-azure-access
     sklearn:
       storageUri: az://dvc-store/models/churn_model.pkl
