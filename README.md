@@ -1,66 +1,183 @@
-# Churn Model MLOps Demo
+# 🚀 Real-Time MLOps Project - Customer Churn Prediction
 
-A simple demonstration of MLOps practices for a customer churn prediction model.
+A production-ready MLOps pipeline for predicting customer churn using scikit-learn, FastAPI, DVC, KServe, ArgoCD, and GitHub Actions on **Microsoft Azure**.
 
-## What Does This Model Do?
+---
 
-**Real-World Example:**
+## 📋 Table of Contents
 
-Imagine you run a telecom company with thousands of customers. Some customers are happy and stay for years, while others leave (churn) after a few months. This model predicts which customers are likely to leave.
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Azure Resources](#azure-resources)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [CI/CD Pipeline](#cicd-pipeline)
+- [Kubernetes & KServe Deployment](#kubernetes--kserve-deployment)
+- [Model Inference](#model-inference)
+- [Monitoring & Troubleshooting](#monitoring--troubleshooting)
+- [Contributing](#contributing)
 
-**Example Customer:**
-- **Sarah** is 45 years old
-- Been a customer for 24 months
-- Pays $79.99/month
-- Total spent: $1,920
-- Called customer support 3 times this month
+---
 
-**Model Prediction:**
+## 🎯 Overview
+
+This project demonstrates **production-grade MLOps practices** using a customer churn prediction model:
+
+### What the Model Does
+
+The model predicts which customers are likely to cancel their subscriptions based on:
+- **Age** - Customer age
+- **Tenure** - Months as a customer
+- **Monthly Charges** - Monthly subscription fee
+- **Total Charges** - Lifetime spending
+- **Support Calls** - Number of support interactions
+
+**Example Prediction:**
 ```json
 {
-  "churn": 1,
-  "churn_probability": 0.73
+  "customer_age": 45,
+  "tenure_months": 24,
+  "monthly_charges": 79.99,
+  "total_charges": 1920.00,
+  "support_calls": 3,
+  "churn_prediction": 1,
+  "probability": 0.73
 }
 ```
+👉 73% chance of cancellation → Enable proactive retention strategies
 
-**Translation:** Sarah has a **73% chance of canceling her subscription**. Why? She's calling support frequently (unhappy) and paying relatively high fees. Your business can now:
-- Offer her a discount
-- Reach out with personalized support
-- Prevent losing her before she leaves
+---
 
-**The model looks at patterns** like:
-- High monthly charges → More likely to churn
-- More support calls → Customer is frustrated
-- Low tenure → Haven't built loyalty yet
-
-This helps businesses **save customers proactively** instead of reacting after they've already left!
-
-## Project Structure
+## 🏗️ Architecture
 
 ```
-churn-model/
-├── generate_data.py          # Generate synthetic churn dataset
-├── train.py                   # Train the model
-├── api.py                     # FastAPI inference server
-├── requirements.txt           # Python dependencies
-├── Dockerfile                 # Container image
-├── .dvc/config               # DVC configuration
+┌─────────────────────────────────────────────────────────────┐
+│                        GitHub (Source)                       │
+│  - Push to 'cicd' branch triggers automation               │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  GitHub Actions (CI/CD)                      │
+│  1. Checkout code                                            │
+│  2. Generate synthetic dataset                              │
+│  3. Train model (scikit-learn)                              │
+│  4. Push model to Azure Blob Storage                        │
+│  5. Build Docker image                                      │
+│  6. Push to Azure Container Registry                        │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Azure Services                                  │
+│  - Blob Storage: Models & Data (DVC)                        │
+│  - Container Registry: Docker Images                        │
+│  - Service Principal: Authentication                        │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│                Kubernetes Cluster (KIND/AKS)                │
+│                                                              │
+│  Namespace: churn-model                                    │
+│  ┌────────────────────────────────────────────────────┐   │
+│  │  KServe InferenceService (churn-predictor)        │   │
+│  │  - Serves sklearn model                            │   │
+│  │  - Scales automatically                            │   │
+│  │  - Monitors predictions                            │   │
+│  └────────────────────────────────────────────────────┘   │
+│                                                              │
+│  ┌────────────────────────────────────────────────────┐   │
+│  │  ArgoCD Application                                │   │
+│  │  - Watches git repo for changes                    │   │
+│  │  - Auto-syncs k8s manifests                        │   │
+│  │  - GitOps continuous deployment                    │   │
+│  └────────────────────────────────────────────────────┘   │
+└───────────────────────────────────────────────────────────┘
+```
+
+---
+
+## ☁️ Azure Resources
+
+All Azure resources are provisioned for this project:
+
+| Resource | Name | Purpose |
+|----------|------|---------|
+| **Storage Account** | `churnmlops2025` | Store models & training data (DVC) |
+| **Blob Container** | `dvc-store` | Version control for ML artifacts |
+| **Container Registry** | `churnmlopsacr.azurecr.io` | Store Docker images |
+| **Service Principal** | `sp-churn-mlops` | Authentication for GitHub Actions & Kubernetes |
+| **Resource Group** | `rg-churn-mlops` | Organize all resources |
+
+### Service Principal Credentials (Store Safely)
+```
+Client ID:       38e01995-0739-4d30-a8fb-c1d8ea47b209
+Tenant ID:       cdf5fc8b-d50a-446f-a05d-028e22d1461a
+Subscription ID: 1cc54060-e727-4cd8-afdd-e1bcb64cb07a
+```
+
+⚠️ **Client Secret** is NEVER stored in git—only in GitHub Secrets!
+
+---
+
+## 📁 Project Structure
+
+```
+realtime-mlops-project/
+├── README.md                          # Project documentation
+├── AZURE_DEPLOYMENT_GUIDE.md         # Azure setup guide
+├── requirements.txt                   # Python dependencies
+├── Dockerfile                         # Container image definition
+│
+├── generate_data.py                   # Create synthetic dataset
+├── train.py                           # Train sklearn model
+├── api.py                             # FastAPI inference server
+│
 ├── models/
-│   └── churn_model.pkl.dvc   # DVC metadata for model
-├── k8s/
-│   ├── deployment.yaml       # Kubernetes deployment
-│   └── inference.yaml        # KServe inference service
+│   └── churn_model.pkl               # Trained model (generated)
+│
+├── data/
+│   └── churn_data.csv                # Training data (generated)
+│
+├── k8s/                              # Kubernetes manifests
+│   ├── serviceaccount.yaml           # Namespace, SA, Azure secret
+│   └── inference.yaml                # KServe InferenceService
+│
+├── argocd/
+│   └── application.yaml              # ArgoCD application (GitOps)
+│
 ├── .github/workflows/
-│   └── mlops-pipeline.yaml   # GitHub Actions CI/CD
-└── argocd/
-    └── application.yaml      # ArgoCD application
+│   └── mlops-pipeline.yaml           # CI/CD automation
+│
+└── .dvc/                             # DVC configuration (local)
+    └── config                        # Remote storage settings
 ```
 
-## MLOps Pipeline Steps
+---
 
-### 1. Initial Setup
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Python 3.11+
+- Docker (for local testing)
+- `kubectl` (for Kubernetes)
+- `kind` (for local K8s cluster)
+- Azure CLI
+- Git
+
+### Quick Start (Local)
 
 ```bash
+# Clone repository
+git clone https://github.com/SuchanMadhikarmi/Realtime-MLOps-Project-copy.git
+cd Realtime-MLOps-Project-copy
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
 # Install dependencies
 pip install -r requirements.txt
 
@@ -72,172 +189,14 @@ python train.py
 
 # Test API locally
 python api.py
-# Visit http://localhost:8000/docs
+# Visit: http://localhost:8000/docs
 ```
 
-### 2. DVC Setup (Data Version Control)
+### API Endpoints
 
-```bash
-# Initialize DVC
-dvc init
+**FastAPI Docs:** `http://localhost:8000/docs`
 
-# Configure Azure Blob Storage remote
-dvc remote add -d myremote az://dvc-store/churn-model
-
-# Track model with DVC
-dvc add models/churn_model.pkl
-
-# Push to Azure Blob Storage
-dvc push
-
-# Commit DVC metadata
-git add models/churn_model.pkl.dvc .dvc/ .gitignore
-git commit -m "Track model with DVC"
-```
-
-### 3. Push Model to Azure Blob Storage
-
-After training the model and setting up DVC:
-
-```bash
-# Configure Azure credentials (if not already done)
-export AZURE_STORAGE_ACCOUNT=churnmlops2025
-export AZURE_STORAGE_CONTAINER_NAME=dvc-store
-export AZURE_STORAGE_KEY=<your-storage-account-key>
-
-# Create container (if needed)
-az storage container create --name dvc-store --account-name churnmlops2025
-
-# Push model to Azure Blob Storage using DVC
-dvc push
-
-# Verify model is in Azure
-az storage blob list --account-name churnmlops2025 --container-name dvc-store
-```
-
-The model will be stored in Azure Blob Storage at: `az://dvc-store/churn-model/models/churn_model.pkl`
-
-### 4. Azure Blob Storage Configuration
-
-Models are automatically pushed to Azure Blob Storage by the GitHub Actions pipeline. No manual configuration needed.
-
-### 5. Kubernetes with KIND
-
-```bash
-# Create KIND cluster
-kind create cluster --name churn-model
-```
-
-### 6. KServe Setup
-
-```bash
-# Install KServe
-kubectl apply -f https://github.com/kserve/kserve/releases/download/v0.11.0/kserve.yaml
-
-# Create namespace, ServiceAccount and Azure storage secret for KServe
-# Update k8s/serviceaccount.yaml with your Azure storage key first
-kubectl apply -f k8s/serviceaccount.yaml
-
-# Deploy inference service
-kubectl apply -f k8s/inference.yaml
-
-# Check inference service
-kubectl get inferenceservice -n churn-model
-
-# Wait for it to be ready
-kubectl get inferenceservice churn-predictor -n churn-model -w
-```
-
-**Important:** Before deploying, ensure the Azure storage secret exists:
-```bash
-kubectl create secret generic azure-storage-secret \
-  --from-literal=AZURE_STORAGE_ACCESS_KEY='<your-storage-key>' \
-  -n churn-model --dry-run=client -o yaml | kubectl apply -f -
-```
-
-### 7. Test KServe Inference
-
-```bash
-# Get the inference service URL
-INGRESS_HOST=$(kubectl get inferenceservice churn-predictor -n churn-model -o jsonpath='{.status.url}' | cut -d/ -f3)
-SERVICE_HOSTNAME=$(kubectl get inferenceservice churn-predictor -n churn-model -o jsonpath='{.status.url}' | cut -d/ -f3)
-
-# For local KIND cluster, port-forward
-kubectl port-forward -n churn-model service/churn-predictor-predictor-default 8080:80
-
-# Test prediction with curl
-# Note: sklearn models expect data as arrays, not named features
-# Order: age, tenure_months, monthly_charges, total_charges, num_support_calls
-curl -X POST http://localhost:8080/v1/models/churn-predictor:predict \
-  -H "Content-Type: application/json" \
-  -d '{
-    "instances": [
-      [45, 24, 79.99, 1920.00, 3]
-    ]
-  }'
-```
-
-Expected response:
-```json
-{
-  "predictions": [1]
-}
-```
-
-### 8. GitHub Actions
-
-**Required Secrets (Already Configured):**
-- `AZURE_CLIENT_ID`
-- `AZURE_CLIENT_SECRET`
-- `AZURE_TENANT_ID`
-- `AZURE_SUBSCRIPTION_ID`
-- `AZURE_STORAGE_CONNECTION_STRING`
-- `ACR_LOGIN_SERVER` (churnmlopsacr.azurecr.io)
-- `ACR_USERNAME`
-- `ACR_PASSWORD`
-
-**Pipeline Flow:**
-1. Checkout code
-2. Generate dataset
-3. Train model
-4. Push model to Azure Blob Storage via DVC
-5. Build Docker image
-6. Push image to Azure Container Registry (ACR)
-7. Update `inference.yaml` with new image tag (optional)
-8. Commit changes (triggers ArgoCD)
-
-### 9. ArgoCD (GitOps)
-
-```bash
-# Install ArgoCD
-kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-
-# Deploy application
-kubectl apply -f argocd/application.yaml
-
-# Access ArgoCD UI
-kubectl port-forward svc/argocd-server -n argocd 8080:443
-
-# Get admin password
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
-```
-
-## Complete MLOps Workflow
-
-1. **Developer pushes code** → GitHub
-2. **GitHub Actions triggered:**
-   - Trains model
-   - Pushes model to Azure Blob Storage (DVC)
-   - Builds Docker image
-   - Pushes to Azure Container Registry (ACR)
-   - Updates `inference.yaml` (optional)
-3. **ArgoCD detects change** in `inference.yaml`
-4. **ArgoCD syncs** → Deploys to Kubernetes
-5. **KServe serves** the new model version
-
-## API Usage
-
+**Predict Endpoint:**
 ```bash
 curl -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
@@ -250,7 +209,7 @@ curl -X POST http://localhost:8000/predict \
   }'
 ```
 
-Response:
+**Response:**
 ```json
 {
   "churn": 1,
@@ -258,24 +217,366 @@ Response:
 }
 ```
 
-## Key Components
+---
 
-- **DVC**: Version control for data and models in Azure Blob Storage
-- **Azure Blob Storage**: Remote storage for models and data
-- **Azure Container Registry (ACR)**: Docker image registry (churnmlopsacr.azurecr.io)
-- **Azure Service Principal**: Authentication for GitHub Actions and Kubernetes
-- **KServe**: Serverless ML inference on Kubernetes
-- **KIND**: Local Kubernetes for testing
-- **GitHub Actions**: CI/CD automation
-- **ArgoCD**: GitOps continuous deployment
+## 🔄 CI/CD Pipeline
 
-## Notes
+### How It Works
 
-- Azure resources configured for this project:
-  - Storage Account: `churnmlops2025`
-  - Container Registry: `churnmlopsacr.azurecr.io`
-  - Service Principal: `sp-churn-mlops`
-  - Resource Group: `rg-churn-mlops`
-- All GitHub Actions secrets are already configured
-- For detailed deployment instructions, see [AZURE_DEPLOYMENT_GUIDE.md](AZURE_DEPLOYMENT_GUIDE.md)
-- This is a minimal demo - production setups require monitoring, logging, and security hardening
+1. **Developer pushes to `cicd` branch** 
+2. **GitHub Actions workflow triggers:**
+   - Installs dependencies
+   - Generates synthetic dataset
+   - Trains model (logs metrics to stdout)
+   - Authenticates to Azure (via Service Principal)
+   - Pushes model to Azure Blob Storage
+   - Builds Docker image
+   - Pushes image to Azure Container Registry
+   - Updates Kubernetes manifests (optional)
+
+3. **Model is ready for deployment**
+
+### Pipeline Status
+
+Check workflow runs: `Settings → Actions → All workflows`
+
+### Required GitHub Secrets
+
+⚠️ **All 8 secrets must be configured:**
+
+```
+AZURE_CLIENT_ID              = 38e01995-0739-4d30-a8fb-c1d8ea47b209
+AZURE_CLIENT_SECRET          = <from Azure Portal>
+AZURE_TENANT_ID              = cdf5fc8b-d50a-446f-a05d-028e22d1461a
+AZURE_SUBSCRIPTION_ID        = 1cc54060-e727-4cd8-afdd-e1bcb64cb07a
+AZURE_STORAGE_CONNECTION_STRING = <from Storage Account>
+AZURE_STORAGE_KEY            = <from Storage Account>
+ACR_LOGIN_SERVER             = churnmlopsacr.azurecr.io
+ACR_USERNAME                 = churnmlopsacr
+ACR_PASSWORD                 = <from Azure Portal>
+```
+
+**How to add secrets:**
+1. Go to `Settings → Secrets and variables → Actions`
+2. Click "New repository secret"
+3. Add each secret name and value
+
+### DVC Integration
+
+Models are automatically versioned in Azure Blob Storage:
+- Path: `az://dvc-store/models/churn_model.pkl`
+- Tracked via DVC metadata files
+- Reproducible training pipeline
+
+---
+
+## 🎮 Kubernetes & KServe Deployment
+
+### Prerequisites
+- KIND cluster or AKS cluster
+- `kubectl` configured
+- Model in Azure Blob Storage ✅
+
+### Step 1: Create KIND Cluster (Local Testing)
+
+```bash
+kind create cluster --name churn-model
+```
+
+### Step 2: Install KServe
+
+```bash
+kubectl apply -f https://github.com/kserve/kserve/releases/download/v0.11.0/kserve.yaml
+
+# Wait for KServe controller to be ready
+kubectl wait --for=condition=ready pod \
+  -l control-plane=kserve-controller-manager \
+  -n kserve --timeout=300s
+```
+
+### Step 3: Create Kubernetes Namespace & Secret
+
+```bash
+# Apply namespace and service account
+kubectl apply -f k8s/serviceaccount.yaml
+
+# Create Azure storage secret
+# ⚠️ Use your ACTUAL storage key from Azure Portal
+kubectl create secret generic azure-storage-secret \
+  --from-literal=AZURE_STORAGE_ACCESS_KEY='YOUR_STORAGE_KEY_HERE' \
+  -n churn-model \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Verify
+kubectl get secret azure-storage-secret -n churn-model -o yaml
+```
+
+### Step 4: Deploy KServe InferenceService
+
+```bash
+kubectl apply -f k8s/inference.yaml
+
+# Monitor deployment
+kubectl get isvc -n churn-model -w
+
+# Wait until STATUS = Ready (takes 2-5 minutes)
+kubectl get isvc churn-predictor -n churn-model
+```
+
+### Step 5: Setup ArgoCD (Optional - GitOps)
+
+```bash
+# Install ArgoCD
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# Apply application
+kubectl apply -f argocd/application.yaml
+
+# Port-forward to UI
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+
+# Get admin password
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+```
+
+---
+
+## 📊 Model Inference
+
+### Via KServe (REST API)
+
+```bash
+# Port-forward to service
+kubectl port-forward -n churn-model svc/churn-predictor-predictor-default 8080:80 &
+
+# Make prediction
+curl -X POST http://localhost:8080/v1/models/churn-predictor:predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "instances": [
+      [45, 24, 79.99, 1920.00, 3]
+    ]
+  }'
+```
+
+**Response:**
+```json
+{
+  "predictions": [1]
+}
+```
+
+### Via FastAPI (Local)
+
+```bash
+# Start API server
+python api.py
+
+# Make prediction
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "age": 45,
+    "tenure_months": 24,
+    "monthly_charges": 79.99,
+    "total_charges": 1920.00,
+    "num_support_calls": 3
+  }'
+```
+
+---
+
+## 🔍 Monitoring & Troubleshooting
+
+### Check Model Status
+
+```bash
+# Describe inference service
+kubectl describe isvc churn-predictor -n churn-model
+
+# Check predictor pod logs
+kubectl logs -n churn-model -l serving.kserve.io/inferenceservice=churn-predictor
+
+# Check if model is ready
+kubectl get isvc churn-predictor -n churn-model -o jsonpath='{.status.conditions[*].message}'
+```
+
+### Common Issues
+
+**Issue: InferenceService stuck in "Creating" state**
+
+```bash
+# Check events
+kubectl describe isvc churn-predictor -n churn-model
+
+# Check storage secret exists
+kubectl get secret azure-storage-secret -n churn-model
+
+# Verify Azure connectivity
+kubectl run -it --rm debug --image=mcr.microsoft.com/azure-cli:latest -- bash
+az storage blob list --account-name churnmlops2025 --container-name dvc-store
+```
+
+**Issue: "Cannot download model"**
+
+```bash
+# Verify Azure storage secret
+kubectl get secret azure-storage-secret -n churn-model -o yaml
+
+# Check blob storage path
+az storage blob list --account-name churnmlops2025 --container-name dvc-store --output table
+```
+
+**Issue: Port-forward not working**
+
+```bash
+# Get correct service name
+kubectl get svc -n churn-model
+
+# Check if pods are running
+kubectl get pods -n churn-model
+
+# Port-forward with correct service
+kubectl port-forward -n churn-model svc/churn-predictor 8080:80
+```
+
+---
+
+## 🔐 Security Best Practices
+
+### ✅ What We Do Right
+
+- ✅ Azure Service Principal instead of root credentials
+- ✅ Secrets stored in GitHub Secrets (encrypted)
+- ✅ Empty placeholder in serviceaccount.yaml (no hardcoded keys)
+- ✅ Kubernetes secrets for Azure storage access
+- ✅ RBAC on Azure resources (Service Principal has limited roles)
+
+### ⚠️ Important Security Notes
+
+1. **Rotate Azure Storage Key Regularly**
+   - Azure Portal → Storage Accounts → Access Keys → Rotate key1
+   - Update `AZURE_STORAGE_KEY` secret in GitHub
+
+2. **Never Commit Secrets**
+   - GitHub push protection blocks credential commits
+   - Always use GitHub Secrets for sensitive data
+
+3. **Limit Service Principal Permissions**
+   - Current: Contributor on resource group
+   - Production: Use minimal scoped roles
+
+4. **Network Security**
+   - Enable VNet endpoints for Blob Storage
+   - Use Private Link for secure connectivity
+
+---
+
+## 📚 Key Technologies
+
+| Component | Purpose | Version |
+|-----------|---------|---------|
+| **scikit-learn** | ML model training | 1.8.0+ |
+| **FastAPI** | REST API server | 0.135.0+ |
+| **DVC** | Data version control | 3.67.0+ |
+| **KServe** | ML model serving | 0.11.0+ |
+| **ArgoCD** | GitOps deployment | Latest |
+| **GitHub Actions** | CI/CD automation | Built-in |
+| **Azure Blob Storage** | Model storage | Standard |
+| **Azure Container Registry** | Docker images | Standard |
+| **Kubernetes** | Orchestration | 1.24+ |
+
+---
+
+## 🛠️ Development Workflow
+
+### Adding New Features
+
+1. Create feature branch
+2. Make changes
+3. Test locally (`python train.py`, `python api.py`)
+4. Push to GitHub
+5. Create Pull Request
+6. Merge to `cicd` branch
+7. GitHub Actions auto-deploys
+
+### Training a New Model
+
+```bash
+# Modify generate_data.py or train.py
+# Then push changes:
+git add .
+git commit -m "Update model training"
+git push origin cicd
+
+# GitHub Actions automatically:
+# - Trains new model
+# - Pushes to Azure Blob Storage
+# - Updates KServe deployment (via ArgoCD)
+```
+
+---
+
+## 📖 Additional Resources
+
+- [Azure Deployment Guide](AZURE_DEPLOYMENT_GUIDE.md)
+- [KServe Documentation](https://kserve.github.io/)
+- [GitHub Actions Guide](https://docs.github.com/en/actions)
+- [ArgoCD Documentation](https://argo-cd.readthedocs.io/)
+- [DVC Documentation](https://dvc.org/)
+
+---
+
+## 🤝 Contributing
+
+### Issue Reporting
+
+Found a bug? Create an issue with:
+- Description
+- Steps to reproduce
+- Expected vs actual behavior
+- Environment details
+
+### Pull Requests
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
+
+### Code Standards
+
+- Python: PEP 8 compliance
+- YAML: Consistent formatting (2-space indent)
+- Commits: Clear, descriptive messages
+- Tests: Add tests for new features
+
+---
+
+## 📝 License
+
+This project is open source and available under the MIT License.
+
+---
+
+## 👨‍💼 Project Maintainer
+
+**Suchan Madhikarmi**  
+[GitHub](https://github.com/SuchanMadhikarmi) | [LinkedIn](https://linkedin.com/in/suchanmadhikarmi)
+
+---
+
+## 📞 Support
+
+For questions or issues:
+1. Check [Troubleshooting](#monitoring--troubleshooting) section
+2. Review [AZURE_DEPLOYMENT_GUIDE.md](AZURE_DEPLOYMENT_GUIDE.md)
+3. Create GitHub issue
+4. Contact maintainer
+
+---
+
+**Last Updated:** March 2026  
+**Status:** ✅ Production Ready
