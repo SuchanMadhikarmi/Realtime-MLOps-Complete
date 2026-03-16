@@ -13,6 +13,7 @@ A production-ready MLOps pipeline for predicting customer churn using scikit-lea
 - [Getting Started](#getting-started)
 - [CI/CD Pipeline](#cicd-pipeline)
 - [Kubernetes & KServe Deployment](#kubernetes--kserve-deployment)
+- [GitOps with ArgoCD](#gitops-with-argocd)
 - [Model Inference](#model-inference)
 - [Monitoring & Troubleshooting](#monitoring--troubleshooting)
 - [Contributing](#contributing)
@@ -323,26 +324,179 @@ kubectl get isvc -n churn-model -w
 kubectl get isvc churn-predictor -n churn-model
 ```
 
-### Step 5: Setup ArgoCD (Optional - GitOps)
+### Step 5: Setup ArgoCD (GitOps Continuous Deployment)
+
+**What is GitOps?**
+GitOps is a deployment methodology where Git is the single source of truth. ArgoCD automatically syncs your Kubernetes cluster to match your git repository.
+
+**Installation:**
 
 ```bash
-# Install ArgoCD
+# 1. Create ArgoCD namespace
 kubectl create namespace argocd
+
+# 2. Install ArgoCD
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
-# Apply application
-kubectl apply -f argocd/application.yaml
+# 3. Wait for ArgoCD to be ready
+kubectl wait --for=condition=ready pod \
+  -l app.kubernetes.io/name=argocd-server \
+  -n argocd --timeout=60s
+```
 
-# Port-forward to UI
-kubectl port-forward svc/argocd-server -n argocd 8080:443
+**Access ArgoCD Dashboard:**
+
+```bash
+# Port-forward to ArgoCD server
+kubectl port-forward svc/argocd-server -n argocd 8080:443 &
 
 # Get admin password
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath="{.data.password}" | base64 -d && echo
+
+# Open browser: https://localhost:8080
+# Login with username: admin and password from above
 ```
+
+**Deploy Application (GitOps):**
+
+```bash
+# Apply ArgoCD Application manifest
+kubectl apply -f argocd/application.yaml
+
+# Check sync status
+kubectl get application churn-model -n argocd
+
+# Watch for ready status
+kubectl get application churn-model -n argocd -w
+
+# Describe application
+kubectl describe application churn-model -n argocd
+```
+
+**How It Works:**
+
+1. **Git as Source of Truth** - `argocd/application.yaml` points to your git repo (`cicd` branch)
+2. **Automatic Sync** - ArgoCD monitors git and automatically applies changes
+3. **Self-Healing** - If cluster state drifts, ArgoCD restores it
+4. **Audit Trail** - All deployments tracked in git commit history
+
+**Rolling Back a Deployment:**
+
+```bash
+# See git history
+git log --oneline k8s/inference.yaml
+
+# Revert to previous version
+git revert <commit-hash>
+git push origin cicd
+
+# ArgoCD automatically syncs (within 3 minutes) or manually:
+# kubectl port-forward svc/argocd-server -n argocd 8080:443
+# Then click SYNC in ArgoCD UI
+```
+
+**For More Details:** See [argocd/README.md](argocd/README.md) for comprehensive GitOps guide
 
 ---
 
-## 📊 Model Inference
+## � GitOps with ArgoCD
+
+ArgoCD provides **continuous deployment** by automatically syncing your Kubernetes cluster with your git repository. This section covers the complete GitOps workflow.
+
+### Key Benefits
+
+✅ **Git as Single Source of Truth** - Cluster state defined in git  
+✅ **Automatic Deployment** - Changes push automatically  
+✅ **Self-Healing** - Detects and corrects drift  
+✅ **Rollback in Seconds** - Revert via git commit  
+✅ **Full Audit Trail** - Complete deployment history  
+✅ **No Manual kubectl** - Everything declarative  
+
+### Complete GitOps Workflow
+
+```
+Your Code → GitHub (cicd branch) 
+           ↓
+       GitHub Actions
+       - Train model
+       - Push to Azure
+       - Update manifests
+           ↓
+    Git Commit Change
+           ↓
+    ArgoCD Detects Change
+           ↓
+   Kubernetes Cluster Updated
+    - New model deployed
+    - KServe synced
+    - Service ready
+```
+
+### Monitoring ArgoCD
+
+```bash
+# Check application sync status
+kubectl get application churn-model -n argocd -o wide
+
+# View detailed status
+kubectl get application churn-model -n argocd -o jsonpath='{.status}'
+
+# Check if cluster matches git
+argocd app diff churn-model
+
+# View deployment history
+git log --oneline -- k8s/
+
+# See which resources are synced
+kubectl get all -n churn-model
+```
+
+### Real-World Example: Deploy New Model Version
+
+**Scenario:** You've trained a new model version and want to deploy it.
+
+```bash
+# Step 1: New model pushed to Azure (GitHub Actions does this automatically)
+# New model: az://dvc-store/models/churn_model_v2.pkl
+
+# Step 2: Update git manifest
+vim k8s/inference.yaml
+# Change: storageUri: az://dvc-store/models/churn_model_v2.pkl
+
+# Step 3: Commit and push
+git add k8s/inference.yaml
+git commit -m "Deploy churn model v2"
+git push origin cicd
+
+# Step 4: ArgoCD automatically syncs within 3 minutes
+# ✅ Old model pods terminate
+# ✅ New model pods start
+# ✅ Service stays live during transition
+
+# Step 5: Verify new version
+kubectl get isvc churn-predictor -n churn-model -o jsonpath='{.spec.predictor.sklearn.storageUri}'
+```
+
+### Rollback Example
+
+```bash
+# See what changed
+git log --oneline k8s/inference.yaml
+
+# Rollback to previous version
+git revert <commit-hash>
+git push origin cicd
+
+# ArgoCD auto-syncs back to old model
+# Old version becomes active within 3 minutes
+```
+
+For detailed ArgoCD setup, troubleshooting, and advanced configurations, see [argocd/README.md](argocd/README.md).
+
+---
+
+## �📊 Model Inference
 
 ### Via KServe (REST API)
 
