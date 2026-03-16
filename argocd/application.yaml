@@ -6,8 +6,8 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/your-org/churn-model
-    targetRevision: HEAD
+    repoURL: https://github.com/SuchanMadhikarmi/Realtime-MLOps-Project-copy
+    targetRevision: cicd
     path: k8s
   destination:
     server: https://kubernetes.default.svc
