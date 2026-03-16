@@ -37,6 +37,31 @@ jobs:
     - name: Train model
       run: python train.py
 
+    - name: Configure DVC for Azure Blob Storage
+      run: |
+        dvc remote add -d myremote az://${{ env.CONTAINER_NAME }}/
+        dvc config 'remote.myremote.url' az://${{ env.CONTAINER_NAME }}/models
+
+    - name: Configure DVC Azure Credentials
+      run: |
+        dvc config 'remote.myremote.account_name' ${{ env.STORAGE_ACCOUNT }}
+        dvc remote modify myremote --local account_name ${{ env.STORAGE_ACCOUNT }}
+      env:
+        AZURE_STORAGE_ACCOUNT: ${{ env.STORAGE_ACCOUNT }}
+        AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+
+    - name: Track model with DVC
+      run: |
+        dvc add models/churn_model.pkl
+        git add models/churn_model.pkl.dvc .gitignore
+        git commit -m "Update model version [skip ci]" || echo "No model changes"
+
+    - name: Push model to Azure via DVC
+      run: dvc push
+      env:
+        AZURE_STORAGE_ACCOUNT: ${{ env.STORAGE_ACCOUNT }}
+        AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+
     - name: Login to Azure
       uses: azure/login@v1
       with:
